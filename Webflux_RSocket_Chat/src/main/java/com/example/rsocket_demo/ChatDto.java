@@ -12,4 +12,5 @@ import lombok.Setter;
 public class ChatDto {
     private String username;
     private String message;
+    private String chattingAddress;
 }
