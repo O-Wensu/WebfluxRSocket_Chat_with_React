@@ -3,6 +3,7 @@ import {
   RSocketClient,
   JsonSerializer,
   IdentitySerializer,
+  encodeRoute,
 } from 'rsocket-core';
 import RSocketWebSocketClient from 'rsocket-websocket-client';
 import { EchoResponder } from './responder';
@@ -11,14 +12,16 @@ const Chatting = () => {
   const [message, setMessage] = useState('');
   const [socket, setSocket] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [chattingAddress, setChattingAddress] = useState('');
 
-  useEffect(() => {
-    connect();
-  }, []);
+  // useEffect(() => {
+  //   connect();
+  // }, []);
 
   const messageReceiver = (payload) => {
     setMessages((prevMessages) => [...prevMessages, payload.data]);
   };
+
   const responder = new EchoResponder(messageReceiver);
 
   const send = () => {
@@ -27,6 +30,7 @@ const Chatting = () => {
         data: {
           username: 'Superpil',
           message: message,
+          chattingAddress : chattingAddress,
         },
         metadata: String.fromCharCode('message'.length) + 'message',
       })
@@ -46,48 +50,57 @@ const Chatting = () => {
       });
   };
 
-  const connect = () => {
+  const connect = (chattingAddress)=> {
     const client = new RSocketClient({
-      serializers: {
-        data: JsonSerializer,
-        metadata: IdentitySerializer,
-      },
-      setup: {
-        // ms btw sending keepalive to server
-        keepAlive: 60000,
-        // ms timeout if no keepalive response
-        lifetime: 180000,
-        // format of `data`
-        dataMimeType: 'application/json',
-        // format of `metadata`
-        metadataMimeType: 'message/x.rsocket.routing.v0',
-      },
-      responder: responder,
-      transport: new RSocketWebSocketClient({
-        url: 'ws://localhost:6565/rs', 
-      }),
+        serializers: {
+            data: JsonSerializer,
+            metadata: IdentitySerializer,
+        },
+        setup: {
+            payload: {
+                data: chattingAddress
+            },
+            keepAlive: 60000,
+            lifetime: 180000,
+            dataMimeType: 'application/json',
+            metadataMimeType: 'message/x.rsocket.routing.v0',
+        },
+        responder:responder,
+        transport: new RSocketWebSocketClient({
+            url: 'ws://localhost:6565/rs',
+        })
     });
-
+    
     client.connect().subscribe({
-      onComplete: (socket) => {
-        setSocket(socket);
-      },
-      onError: (error) => {
-        console.log(error);
-      },
-      onSubscribe: (cancel) => {
-        console.log(cancel);
-      },
+        onComplete : (socket)=>{
+            console.log('소켓 연결됨')
+            setSocket(socket);
+        },
+        onError : (error) =>{
+            console.log('e : ',error)
+        },
+        onSubscribe: (cancel) => {
+          console.log(cancel);
+        },
     });
-  };
+};
+
 
   return (
     <div>
       <h1>Chatting</h1>
+      <input 
+        type="text" 
+        value={chattingAddress}
+        onChange={(e)=> setChattingAddress(e.target.value)}
+        placeholder="채팅방 번호"
+        ></input>
+      <button onClick={() => connect(chattingAddress)}>연결</button>
       <input
         type="text"
         value={message}
         onChange={(e) => setMessage(e.target.value)}
+        placeholder="메시지 입력"
       />
       <button onClick={send}>전송</button>
       <ul>
